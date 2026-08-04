@@ -1,155 +1,119 @@
-console.log("APP JS STARTED");
-console.log("NEW APP.JS LOADED");
-
 import { supabase } from "../database.js";
 
+console.log("NEW APP.JS LOADED");
 
 let people = [];
 
 
+// Generate public ID: 5 numbers + 6 letters
+function generatePublicID() {
 
+    const numbers = Math.floor(
+        10000 + Math.random() * 90000
+    );
 
-
-function generatePublicID(id) {
-
-
-    const letters =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-
-    let random = "";
-
-
-
-    for(let i = 0; i < 6; i++){
-
-
-        random += letters[
-            Math.floor(
-                Math.random() * letters.length
+    const letters = Array.from(
+        { length: 6 },
+        () =>
+            String.fromCharCode(
+                65 + Math.floor(Math.random() * 26)
             )
-        ];
+    ).join("");
 
-
-    }
-
-
-
-    return `PER-${String(id).padStart(5,"0")}-${random}`;
-
+    return `${numbers}-${letters}`;
 
 }
 
 
+// Load people for dropdowns
+async function loadPeople() {
 
-
-
-
-
-
-async function loadPeople(){
-
-
-
-    const {data,error} =
-    await supabase
-
-    .from("people")
-
-    .select("*")
-
-    .order("id");
-
-
+    const { data, error } = await supabase
+        .from("people")
+        .select("*")
+        .order("id");
 
 
     if(error){
 
-        console.log(error);
-
+        console.error(error);
         return;
 
     }
 
 
+    people = data || [];
 
-    people = data;
-
-
-    loadParentDropdown();
-
-
+    loadDropdowns();
 
 }
 
 
 
-
-
-
-
-
-function loadParentDropdown(){
-
-
+// Load parent and spouse selections
+function loadDropdowns(){
 
     const parentSelect =
-    document.getElementById(
-        "parentSelect"
-    );
+        document.getElementById("parentSelect");
+
+    const spouseSelect =
+        document.getElementById("spouseSelect");
 
 
+    if(parentSelect){
 
-    if(!parentSelect){
-
-        return;
+        parentSelect.innerHTML =
+        `<option value="">No Parent</option>`;
 
     }
 
 
+    if(spouseSelect){
 
+        spouseSelect.innerHTML =
+        `<option value="">No Spouse</option>`;
 
-
-    parentSelect.innerHTML = `
-
-    <option value="">
-    No Parent
-    </option>
-
-    `;
-
-
+    }
 
 
 
     people.forEach(person => {
 
 
-
-        const option =
-        document.createElement(
-            "option"
-        );
+        const name =
+        `${person.first_name || ""} ${person.last_name || ""}`;
 
 
+        if(parentSelect){
 
-        option.value =
-        person.id;
+            const option =
+            document.createElement("option");
+
+            option.value = person.id;
+
+            option.textContent = name;
+
+            parentSelect.appendChild(option);
+
+        }
 
 
 
-        option.textContent =
-        `${person.first_name || ""}
-        ${person.last_name || ""}`;
+        if(spouseSelect){
 
+            const option =
+            document.createElement("option");
 
+            option.value = person.id;
 
-        parentSelect.appendChild(option);
+            option.textContent = name;
 
+            spouseSelect.appendChild(option);
+
+        }
 
 
     });
-
 
 
 }
@@ -157,87 +121,30 @@ function loadParentDropdown(){
 
 
 
-
-
-
-
-
+// Add new person
 async function addPerson(){
 
 
-
     const firstName =
-    document
-    .getElementById("firstName")
-    .value
-    .trim();
-
-
-
-
-    const middleName =
-    document
-    .getElementById("middleName")
-    ?.value
-    .trim()
-    || null;
-
-
-
+    document.getElementById("firstName").value.trim();
 
 
     const lastName =
-    document
-    .getElementById("lastName")
-    .value
-    .trim();
-
-
-
-
-
-
-    const birthDate =
-    document
-    .getElementById("birthDate")
-    ?.value
-    || null;
-
-
-
-
-
-    const birthPlace =
-    document
-    .getElementById("birthPlace")
-    ?.value
-    .trim()
-    || null;
-
-
-
-
+    document.getElementById("lastName").value.trim();
 
 
     const parentID =
-    document
-    .getElementById("parentSelect")
-    ?.value
-    || null;
+    document.getElementById("parentSelect")?.value || null;
 
 
-
-
+    const spouseID =
+    document.getElementById("spouseSelect")?.value || null;
 
 
 
     if(!firstName){
 
-
-        alert(
-            "Enter a first name"
-        );
-
+        alert("Enter a first name");
 
         return;
 
@@ -245,35 +152,29 @@ async function addPerson(){
 
 
 
+    const person = {
 
-
-
-
-
-
-    // Create person first
-
-    const {data:person,error} =
-
-    await supabase
-
-    .from("people")
-
-    .insert({
 
         first_name:firstName,
 
-        middle_name:middleName,
-
         last_name:lastName,
 
-        birth_date:birthDate,
+        public_id:generatePublicID(),
 
-        birth_place:birthPlace,
+        parent_id:parentID,
 
-        parent_id:parentID
+        spouse_id:spouseID
 
-    })
+
+    };
+
+
+
+    const { data, error } = await supabase
+
+    .from("people")
+
+    .insert(person)
 
     .select()
 
@@ -281,22 +182,11 @@ async function addPerson(){
 
 
 
-
-
-
-
-
-
     if(error){
 
+        console.error(error);
 
-        console.log(error);
-
-
-        alert(
-            error.message
-        );
-
+        alert(error.message);
 
         return;
 
@@ -304,101 +194,47 @@ async function addPerson(){
 
 
 
+    // Connect spouse both ways
+
+    if(spouseID){
 
 
+        await supabase
 
+        .from("people")
 
+        .update({
 
+            spouse_id:data.id
 
-    // Create public ID
+        })
 
-    const publicID =
-    generatePublicID(
-        person.id
-    );
+        .eq(
 
+            "id",
 
+            spouseID
 
-
-
-
-
-
-
-    // Save public ID
-
-    const {error:updateError} =
-
-    await supabase
-
-    .from("people")
-
-    .update({
-
-        public_id:publicID
-
-    })
-
-    .eq(
-
-        "id",
-
-        person.id
-
-    );
-
-
-
-
-
-
-
-
-
-    if(updateError){
-
-
-        console.log(updateError);
-
-
-        alert(
-            updateError.message
         );
 
 
-        return;
-
-
     }
-
-
-
-
 
 
 
     alert(
-
-        `${firstName} created\n\n${publicID}`
-
+        `Added ${firstName}`
     );
 
 
-
-
     location.reload();
-
 
 
 }
 
 
 
-
-
-
-
-
+// Start page
 
 document.addEventListener(
 
@@ -410,26 +246,20 @@ document.addEventListener(
     loadPeople();
 
 
-
-
     const button =
-
     document.getElementById(
         "addPersonButton"
     );
 
 
-
-
     if(button){
 
-
-        button.onclick =
-        addPerson;
-
+        button.addEventListener(
+            "click",
+            addPerson
+        );
 
     }
-
 
 
 });
