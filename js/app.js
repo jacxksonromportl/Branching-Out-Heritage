@@ -1,21 +1,65 @@
+console.log("NEW APP.JS LOADED");
+console.log("NEW APP.JS LOADED");
+
 import { supabase } from "../database.js";
 
 
+let people = [];
 
-let people=[];
+
+
+
+
+function generatePublicID(id) {
+
+
+    const letters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+
+    let random = "";
+
+
+
+    for(let i = 0; i < 6; i++){
+
+
+        random += letters[
+            Math.floor(
+                Math.random() * letters.length
+            )
+        ];
+
+
+    }
+
+
+
+    return `PER-${String(id).padStart(5,"0")}-${random}`;
+
+
+}
+
+
+
+
+
 
 
 
 async function loadPeople(){
 
 
-    const {data,error}=await supabase
+
+    const {data,error} =
+    await supabase
 
     .from("people")
 
     .select("*")
 
     .order("id");
+
 
 
 
@@ -29,10 +73,11 @@ async function loadPeople(){
 
 
 
-    people=data;
+    people = data;
 
 
-    loadDropdowns();
+    loadParentDropdown();
+
 
 
 }
@@ -41,114 +86,21 @@ async function loadPeople(){
 
 
 
-function loadDropdowns(){
+
+
+
+function loadParentDropdown(){
+
 
 
     const parentSelect =
-    document.getElementById("parentSelect");
+    document.getElementById(
+        "parentSelect"
+    );
 
 
-    const spouseSelect =
-    document.getElementById("spouseSelect");
 
-
-
-    if(parentSelect){
-
-        parentSelect.innerHTML =
-        `<option value="">No Parent</option>`;
-
-    }
-
-
-
-    if(spouseSelect){
-
-        spouseSelect.innerHTML =
-        `<option value="">No Spouse</option>`;
-
-    }
-
-
-
-
-    people.forEach(person=>{
-
-
-        const name =
-
-        `${person.first_name || ""} ${person.last_name || ""}`;
-
-
-
-        if(parentSelect){
-
-            const option=document.createElement("option");
-
-            option.value=person.id;
-
-            option.textContent=name;
-
-            parentSelect.appendChild(option);
-
-        }
-
-
-
-
-        if(spouseSelect){
-
-            const option=document.createElement("option");
-
-            option.value=person.id;
-
-            option.textContent=name;
-
-            spouseSelect.appendChild(option);
-
-        }
-
-
-    });
-
-
-}
-
-
-
-
-
-async function addPerson(){
-
-
-    const firstName=
-
-    document.getElementById("firstName").value;
-
-
-
-    const lastName=
-
-    document.getElementById("lastName").value;
-
-
-
-    const parentID=
-
-    document.getElementById("parentSelect").value || null;
-
-
-
-    const spouseID=
-
-    document.getElementById("spouseSelect").value || null;
-
-
-
-
-    if(!firstName){
-
-        alert("Enter a first name");
+    if(!parentSelect){
 
         return;
 
@@ -157,7 +109,153 @@ async function addPerson(){
 
 
 
-    const {data,error}=await supabase
+
+    parentSelect.innerHTML = `
+
+    <option value="">
+    No Parent
+    </option>
+
+    `;
+
+
+
+
+
+    people.forEach(person => {
+
+
+
+        const option =
+        document.createElement(
+            "option"
+        );
+
+
+
+        option.value =
+        person.id;
+
+
+
+        option.textContent =
+        `${person.first_name || ""}
+        ${person.last_name || ""}`;
+
+
+
+        parentSelect.appendChild(option);
+
+
+
+    });
+
+
+
+}
+
+
+
+
+
+
+
+
+
+async function addPerson(){
+
+
+
+    const firstName =
+    document
+    .getElementById("firstName")
+    .value
+    .trim();
+
+
+
+
+    const middleName =
+    document
+    .getElementById("middleName")
+    ?.value
+    .trim()
+    || null;
+
+
+
+
+
+    const lastName =
+    document
+    .getElementById("lastName")
+    .value
+    .trim();
+
+
+
+
+
+
+    const birthDate =
+    document
+    .getElementById("birthDate")
+    ?.value
+    || null;
+
+
+
+
+
+    const birthPlace =
+    document
+    .getElementById("birthPlace")
+    ?.value
+    .trim()
+    || null;
+
+
+
+
+
+
+    const parentID =
+    document
+    .getElementById("parentSelect")
+    ?.value
+    || null;
+
+
+
+
+
+
+
+    if(!firstName){
+
+
+        alert(
+            "Enter a first name"
+        );
+
+
+        return;
+
+    }
+
+
+
+
+
+
+
+
+
+    // Create person first
+
+    const {data:person,error} =
+
+    await supabase
 
     .from("people")
 
@@ -165,11 +263,15 @@ async function addPerson(){
 
         first_name:firstName,
 
+        middle_name:middleName,
+
         last_name:lastName,
 
-        parent_id:parentID,
+        birth_date:birthDate,
 
-        spouse_id:spouseID
+        birth_place:birthPlace,
+
+        parent_id:parentID
 
     })
 
@@ -180,11 +282,21 @@ async function addPerson(){
 
 
 
+
+
+
+
+
     if(error){
 
-        alert(error.message);
 
         console.log(error);
+
+
+        alert(
+            error.message
+        );
+
 
         return;
 
@@ -192,12 +304,30 @@ async function addPerson(){
 
 
 
-   // Connect spouse both ways
-
-if(spouseID){
 
 
-    // Update the person being added
+
+
+
+
+    // Create public ID
+
+    const publicID =
+    generatePublicID(
+        person.id
+    );
+
+
+
+
+
+
+
+
+
+    // Save public ID
+
+    const {error:updateError} =
 
     await supabase
 
@@ -205,7 +335,7 @@ if(spouseID){
 
     .update({
 
-        spouse_id: spouseID
+        public_id:publicID
 
     })
 
@@ -213,34 +343,45 @@ if(spouseID){
 
         "id",
 
-        data.id
+        person.id
 
     );
 
 
 
-    // Update the existing spouse
 
-    await supabase
 
-    .from("people")
 
-    .update({
 
-        spouse_id: data.id
 
-    })
 
-    .eq(
+    if(updateError){
 
-        "id",
 
-        spouseID
+        console.log(updateError);
+
+
+        alert(
+            updateError.message
+        );
+
+
+        return;
+
+
+    }
+
+
+
+
+
+
+
+    alert(
+
+        `${firstName} created\n\n${publicID}`
 
     );
-
-
-}
 
 
 
@@ -248,7 +389,12 @@ if(spouseID){
     location.reload();
 
 
+
 }
+
+
+
+
 
 
 
@@ -265,17 +411,25 @@ document.addEventListener(
 
 
 
-    const button=
 
-    document.getElementById("addPersonButton");
+    const button =
+
+    document.getElementById(
+        "addPersonButton"
+    );
+
 
 
 
     if(button){
 
-        button.onclick=addPerson;
+
+        button.onclick =
+        addPerson;
+
 
     }
+
 
 
 });
