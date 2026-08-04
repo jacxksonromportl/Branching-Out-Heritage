@@ -10,19 +10,18 @@ import cytoscape from
 async function loadTree(){
 
 
-const tree =
-document.getElementById("tree");
+const tree = document.getElementById("tree");
 
 
 if(!tree){
 
-return;
+    return;
 
 }
 
 
 
-// Load data
+// Get people
 
 const {data:people,error:peopleError}=await supabase
 
@@ -32,6 +31,8 @@ const {data:people,error:peopleError}=await supabase
 
 
 
+// Get marriages
+
 const {data:marriages,error:marriageError}=await supabase
 
 .from("marriages")
@@ -40,7 +41,9 @@ const {data:marriages,error:marriageError}=await supabase
 
 
 
-const {data:children,error:childrenError}=await supabase
+// Get marriage children
+
+const {data:marriageChildren,error:childrenError}=await supabase
 
 .from("marriage_children")
 
@@ -50,17 +53,27 @@ const {data:children,error:childrenError}=await supabase
 
 
 
-if(
-peopleError ||
-marriageError ||
-childrenError
-){
+if(peopleError){
 
-console.log(
-peopleError ||
-marriageError ||
-childrenError
-);
+console.log("People error:", peopleError);
+
+return;
+
+}
+
+
+if(marriageError){
+
+console.log("Marriage error:", marriageError);
+
+return;
+
+}
+
+
+if(childrenError){
+
+console.log("Marriage children error:", childrenError);
 
 return;
 
@@ -70,14 +83,25 @@ return;
 
 
 
-let nodes=[];
+console.log("People:", people);
 
-let edges=[];
+console.log("Marriages:", marriages);
+
+console.log("Marriage Children:", marriageChildren);
 
 
 
 
-// Add people nodes
+
+let nodes = [];
+
+let edges = [];
+
+
+
+
+
+// Create person nodes
 
 people.forEach(person=>{
 
@@ -86,15 +110,14 @@ nodes.push({
 
 data:{
 
-id:"person-"+person.id,
+id:`person-${person.id}`,
 
 label:
-
 `${person.first_name || ""} ${person.last_name || ""}`,
 
-person:person,
+type:"person",
 
-type:"person"
+person:person
 
 }
 
@@ -107,16 +130,23 @@ type:"person"
 
 
 
-// Add marriage nodes
+
+
+// Create marriage nodes
 
 marriages.forEach(marriage=>{
+
+
+const marriageID =
+`marriage-${marriage.id}`;
+
 
 
 nodes.push({
 
 data:{
 
-id:"marriage-"+marriage.id,
+id:marriageID,
 
 label:"💍",
 
@@ -134,18 +164,50 @@ edges.push({
 
 data:{
 
-id:
+id:`spouse-${marriage.id}-1`,
 
-"m1-"+marriage.id,
+source:`person-${marriage.spouse_one}`,
 
-source:"person-"+marriage.spouse_one,
+target:marriageID,
 
-target:"marriage-"+marriage.id
+type:"spouse"
 
 }
 
 });
 
+
+
+
+
+edges.push({
+
+data:{
+
+id:`spouse-${marriage.id}-2`,
+
+source:`person-${marriage.spouse_two}`,
+
+target:marriageID,
+
+type:"spouse"
+
+}
+
+});
+
+
+
+});
+
+
+
+
+
+
+// Connect children to marriages
+
+marriageChildren.forEach(connection=>{
 
 
 edges.push({
@@ -154,45 +216,17 @@ data:{
 
 id:
 
-"m2-"+marriage.id,
-
-source:"person-"+marriage.spouse_two,
-
-target:"marriage-"+marriage.id
-
-}
-
-});
-
-
-
-});
-
-
-
-
-
-
-// Connect children
-
-children.forEach(child=>{
-
-
-edges.push({
-
-data:{
-
-id:
-
-"child-"+child.marriage_id+"-"+child.child_id,
+`child-${connection.marriage_id}-${connection.child_id}`,
 
 source:
 
-"marriage-"+child.marriage_id,
+`marriage-${connection.marriage_id}`,
 
 target:
 
-"person-"+child.child_id
+`person-${connection.child_id}`,
+
+type:"child"
 
 }
 
@@ -205,8 +239,9 @@ target:
 
 
 
-const cy =
-cytoscape({
+
+
+const cy = cytoscape({
 
 
 container:tree,
@@ -215,15 +250,17 @@ container:tree,
 
 elements:{
 
-nodes,
+nodes:nodes,
 
-edges
+edges:edges
 
 },
 
 
 
+
 style:[
+
 
 {
 
@@ -237,9 +274,9 @@ label:"data(label)",
 
 color:"white",
 
-width:110,
+width:120,
 
-height:110,
+height:120,
 
 "text-valign":"center",
 
@@ -248,6 +285,7 @@ height:110,
 }
 
 },
+
 
 
 
@@ -263,13 +301,18 @@ label:"data(label)",
 
 color:"white",
 
-width:40,
+width:50,
 
-height:40
+height:50,
+
+"text-valign":"center",
+
+"text-halign":"center"
 
 }
 
 },
+
 
 
 
@@ -287,7 +330,10 @@ width:3,
 
 }
 
+
+
 ],
+
 
 
 
@@ -297,7 +343,9 @@ name:"breadthfirst",
 
 directed:true,
 
-spacingFactor:2
+spacingFactor:3,
+
+padding:100
 
 }
 
@@ -308,6 +356,10 @@ spacingFactor:2
 
 
 
+
+
+
+// Click profiles
 
 cy.on(
 
@@ -326,6 +378,32 @@ this.data("person")
 }
 
 );
+
+
+
+
+
+// Controls
+
+window.zoomIn=()=>{
+
+cy.zoom(cy.zoom()+0.2);
+
+};
+
+
+window.zoomOut=()=>{
+
+cy.zoom(cy.zoom()-0.2);
+
+};
+
+
+window.centerTree=()=>{
+
+cy.fit();
+
+};
 
 
 
