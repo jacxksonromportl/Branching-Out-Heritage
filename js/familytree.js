@@ -1,409 +1,452 @@
 import { supabase } from "../database.js";
-
 import { openProfile } from "./profiles.js";
+import cytoscape from "https://cdn.jsdelivr.net/npm/cytoscape/+esm";
 
-import cytoscape from
-"https://cdn.jsdelivr.net/npm/cytoscape/+esm";
 
+async function loadTree() {
 
+    const tree = document.getElementById("tree");
 
-async function loadTree(){
+    if (!tree) {
+        return;
+    }
 
 
-const tree = document.getElementById("tree");
+    // Load database data
 
+    const { data: people, error: peopleError } = await supabase
+        .from("people")
+        .select("*");
 
-if(!tree){
 
-    return;
+    const { data: marriages, error: marriageError } = await supabase
+        .from("marriages")
+        .select("*");
 
-}
 
+    const { data: marriageChildren, error: childrenError } = await supabase
+        .from("marriage_children")
+        .select("*");
 
 
-// Get people
 
-const {data:people,error:peopleError}=await supabase
+    if (peopleError || marriageError || childrenError) {
 
-.from("people")
+        console.log(
+            peopleError ||
+            marriageError ||
+            childrenError
+        );
 
-.select("*");
+        return;
+    }
 
 
 
-// Get marriages
+    console.log("People:", people);
+    console.log("Marriages:", marriages);
+    console.log("Marriage Children:", marriageChildren);
 
-const {data:marriages,error:marriageError}=await supabase
 
-.from("marriages")
 
-.select("*");
+    let nodes = [];
+    let edges = [];
 
 
 
-// Get marriage children
+    // Create people
 
-const {data:marriageChildren,error:childrenError}=await supabase
+    people.forEach(person => {
 
-.from("marriage_children")
+        nodes.push({
 
-.select("*");
+            data: {
 
+                id: `person-${person.id}`,
 
+                label:
+                `${person.first_name || ""} ${person.last_name || ""}`,
 
+                type: "person",
 
+                person: person
 
-if(peopleError){
+            }
 
-console.log("People error:", peopleError);
+        });
 
-return;
+    });
 
-}
 
 
-if(marriageError){
 
-console.log("Marriage error:", marriageError);
 
-return;
+    // Create marriages
 
-}
+    marriages.forEach(marriage => {
 
 
-if(childrenError){
+        const marriageID =
+        `marriage-${marriage.id}`;
 
-console.log("Marriage children error:", childrenError);
 
-return;
 
-}
+        nodes.push({
 
+            data: {
 
+                id: marriageID,
 
+                label: "💍",
 
+                type: "marriage"
 
-console.log("People:", people);
+            }
 
-console.log("Marriages:", marriages);
+        });
 
-console.log("Marriage Children:", marriageChildren);
 
 
+        // spouse connections
 
+        edges.push({
 
+            data: {
 
-let nodes = [];
+                source:
+                `person-${marriage.spouse_one}`,
 
-let edges = [];
+                target:
+                marriageID,
 
+                type:"spouse"
 
+            }
 
+        });
 
 
-// Create person nodes
 
-people.forEach(person=>{
+        edges.push({
 
+            data: {
 
-nodes.push({
+                source:
+                `person-${marriage.spouse_two}`,
 
-data:{
+                target:
+                marriageID,
 
-id:`person-${person.id}`,
+                type:"spouse"
 
-label:
-`${person.first_name || ""} ${person.last_name || ""}`,
+            }
 
-type:"person",
+        });
 
-person:person
 
-}
 
-});
+    });
 
 
-});
 
 
 
+    // Connect children
 
+    marriageChildren.forEach(child => {
 
 
+        edges.push({
 
-// Create marriage nodes
+            data: {
 
-marriages.forEach(marriage=>{
+                source:
+                `marriage-${child.marriage_id}`,
 
+                target:
+                `person-${child.child_id}`,
 
-const marriageID =
-`marriage-${marriage.id}`;
+                type:"child"
 
+            }
 
+        });
 
-nodes.push({
 
-data:{
+    });
 
-id:marriageID,
 
-label:"💍",
 
-type:"marriage"
 
-}
 
-});
 
+    const cy = cytoscape({
 
+        container: tree,
 
 
+        elements: {
 
-edges.push({
+            nodes: nodes,
 
-data:{
+            edges: edges
 
-id:`spouse-${marriage.id}-1`,
+        },
 
-source:`person-${marriage.spouse_one}`,
 
-target:marriageID,
 
-type:"spouse"
+        style: [
 
-}
+            {
+                selector:'node[type="person"]',
 
-});
+                style: {
 
+                    label:"data(label)",
 
+                    "background-color":"#2e8b57",
 
+                    color:"#ffffff",
 
+                    width:120,
 
-edges.push({
+                    height:120,
 
-data:{
+                    "text-valign":"center",
 
-id:`spouse-${marriage.id}-2`,
+                    "text-halign":"center",
 
-source:`person-${marriage.spouse_two}`,
+                    "font-size":14
 
-target:marriageID,
+                }
 
-type:"spouse"
+            },
 
-}
 
-});
+            {
+                selector:'node[type="marriage"]',
 
+                style: {
 
+                    label:"data(label)",
 
-});
+                    "background-color":"#e91e63",
 
+                    color:"#ffffff",
 
+                    width:50,
 
+                    height:50,
 
+                    "text-valign":"center",
 
+                    "text-halign":"center",
 
-// Connect children to marriages
+                    "font-size":20
 
-marriageChildren.forEach(connection=>{
+                }
 
+            },
 
-edges.push({
 
-data:{
+            {
 
-id:
+                selector:"edge",
 
-`child-${connection.marriage_id}-${connection.child_id}`,
+                style: {
 
-source:
+                    width:3,
 
-`marriage-${connection.marriage_id}`,
+                    "line-color":"#555"
 
-target:
+                }
 
-`person-${connection.child_id}`,
+            }
 
-type:"child"
+        ],
 
-}
 
-});
 
+        layout: {
 
-});
+            name:"preset",
 
+            fit:true,
 
+            padding:100
 
+        }
 
 
+    });
 
 
-const cy = cytoscape({
 
 
-container:tree,
 
 
 
-elements:{
+    // Custom family positioning
 
-nodes:nodes,
 
-edges:edges
+    let currentX = 200;
 
-},
+    let currentY = 150;
 
 
 
+    marriages.forEach(marriage => {
 
-style:[
 
 
-{
+        let spouseOne =
+        cy.getElementById(
+            `person-${marriage.spouse_one}`
+        );
 
-selector:'node[type="person"]',
 
-style:{
+        let spouseTwo =
+        cy.getElementById(
+            `person-${marriage.spouse_two}`
+        );
 
-label:"data(label)",
 
-"background-color":"#2e8b57",
+        let marriageNode =
+        cy.getElementById(
+            `marriage-${marriage.id}`
+        );
 
-color:"white",
 
-width:120,
 
-height:120,
+        spouseOne.position({
 
-"text-valign":"center",
+            x:currentX,
 
-"text-halign":"center"
+            y:currentY
 
-}
+        });
 
-},
 
 
+        spouseTwo.position({
 
+            x:currentX+250,
 
-{
+            y:currentY
 
-selector:'node[type="marriage"]',
+        });
 
-style:{
 
-label:"data(label)",
 
-"background-color":"#e91e63",
+        marriageNode.position({
 
-color:"white",
+            x:currentX+125,
 
-width:50,
+            y:currentY+180
 
-height:50,
+        });
 
-"text-valign":"center",
 
-"text-halign":"center"
 
-}
 
-},
 
+        let kids =
+        marriageChildren.filter(
 
+            child =>
+            child.marriage_id === marriage.id
 
+        );
 
-{
 
-selector:"edge",
 
-style:{
+        kids.forEach((child,index)=>{
 
-width:3,
 
-"line-color":"#555"
+            let childNode =
+            cy.getElementById(
+                `person-${child.child_id}`
+            );
 
-}
 
-}
+            childNode.position({
 
+                x:
+                currentX+(index*180),
 
+                y:
+                currentY+400
 
-],
+            });
 
 
+        });
 
 
-layout:{
 
-name:"breadthfirst",
+        currentX += 600;
 
-directed:true,
 
-spacingFactor:3,
 
-padding:100
+    });
 
-}
 
 
 
-});
 
+    cy.fit();
 
 
 
 
 
+    // Open profile when clicking person
 
-// Click profiles
+    cy.on(
 
-cy.on(
+        "tap",
 
-"tap",
+        "node[type='person']",
 
-"node[type='person']",
+        function(){
 
-function(){
+            openProfile(
+                this.data("person")
+            );
 
-openProfile(
+        }
 
-this.data("person")
+    );
 
-);
 
-}
 
-);
 
 
+    // Controls
 
+    window.zoomIn = () => {
 
+        cy.zoom(
+            cy.zoom()+0.2
+        );
 
-// Controls
+    };
 
-window.zoomIn=()=>{
 
-cy.zoom(cy.zoom()+0.2);
+    window.zoomOut = () => {
 
-};
+        cy.zoom(
+            cy.zoom()-0.2
+        );
 
+    };
 
-window.zoomOut=()=>{
 
-cy.zoom(cy.zoom()-0.2);
+    window.centerTree = () => {
 
-};
+        cy.fit();
 
-
-window.centerTree=()=>{
-
-cy.fit();
-
-};
+    };
 
 
 
