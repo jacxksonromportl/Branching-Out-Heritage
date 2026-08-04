@@ -3,42 +3,58 @@ import { openProfile } from "./profiles.js";
 import cytoscape from "https://cdn.jsdelivr.net/npm/cytoscape/+esm";
 
 
-async function loadTree() {
+async function loadFamilyTree() {
 
-    const tree = document.getElementById("tree");
 
-    if (!tree) {
+    const container = document.getElementById("tree");
+
+
+    if (!container) {
+        console.log("Tree container not found");
         return;
     }
 
 
-    // Load database data
 
-    const { data: people, error: peopleError } = await supabase
+    const peopleResponse = await supabase
         .from("people")
-        .select("*");
+        .select("*")
+        .order("id");
 
 
-    const { data: marriages, error: marriageError } = await supabase
+    const marriagesResponse = await supabase
         .from("marriages")
-        .select("*");
+        .select("*")
+        .order("id");
 
 
-    const { data: marriageChildren, error: childrenError } = await supabase
+    const childrenResponse = await supabase
         .from("marriage_children")
-        .select("*");
+        .select("*")
+        .order("id");
 
 
 
-    if (peopleError || marriageError || childrenError) {
+    const people = peopleResponse.data;
+    const marriages = marriagesResponse.data;
+    const marriageChildren = childrenResponse.data;
+
+
+
+    if (
+        peopleResponse.error ||
+        marriagesResponse.error ||
+        childrenResponse.error
+    ) {
 
         console.log(
-            peopleError ||
-            marriageError ||
-            childrenError
+            peopleResponse.error ||
+            marriagesResponse.error ||
+            childrenResponse.error
         );
 
         return;
+
     }
 
 
@@ -49,14 +65,17 @@ async function loadTree() {
 
 
 
+
     let nodes = [];
     let edges = [];
 
 
 
-    // Create people
+
+    // Create person nodes
 
     people.forEach(person => {
+
 
         nodes.push({
 
@@ -75,19 +94,41 @@ async function loadTree() {
 
         });
 
+
     });
 
 
 
 
 
-    // Create marriages
+
+    // Create marriage nodes
 
     marriages.forEach(marriage => {
 
 
-        const marriageID =
+        const marriageNode =
         `marriage-${marriage.id}`;
+
+
+
+        let marriageLabel = "❤️";
+
+
+        if (marriage.marriage_date) {
+
+            marriageLabel +=
+            `\n${marriage.marriage_date}`;
+
+        }
+
+
+        if (marriage.marriage_place) {
+
+            marriageLabel +=
+            `\n${marriage.marriage_place}`;
+
+        }
 
 
 
@@ -95,9 +136,9 @@ async function loadTree() {
 
             data: {
 
-                id: marriageID,
+                id: marriageNode,
 
-                label: "💍",
+                label: marriageLabel,
 
                 type: "marriage"
 
@@ -107,7 +148,8 @@ async function loadTree() {
 
 
 
-        // spouse connections
+
+        // spouse one → marriage
 
         edges.push({
 
@@ -117,15 +159,17 @@ async function loadTree() {
                 `person-${marriage.spouse_one}`,
 
                 target:
-                marriageID,
-
-                type:"spouse"
+                marriageNode
 
             }
 
         });
 
 
+
+
+
+        // spouse two → marriage
 
         edges.push({
 
@@ -135,9 +179,7 @@ async function loadTree() {
                 `person-${marriage.spouse_two}`,
 
                 target:
-                marriageID,
-
-                type:"spouse"
+                marriageNode
 
             }
 
@@ -151,9 +193,11 @@ async function loadTree() {
 
 
 
-    // Connect children
 
-    marriageChildren.forEach(child => {
+
+    // Marriage → children
+
+    marriageChildren.forEach(record => {
 
 
         edges.push({
@@ -161,12 +205,10 @@ async function loadTree() {
             data: {
 
                 source:
-                `marriage-${child.marriage_id}`,
+                `marriage-${record.marriage_id}`,
 
                 target:
-                `person-${child.child_id}`,
-
-                type:"child"
+                `person-${record.child_id}`
 
             }
 
@@ -182,7 +224,7 @@ async function loadTree() {
 
     const cy = cytoscape({
 
-        container: tree,
+        container: container,
 
 
         elements: {
@@ -197,83 +239,144 @@ async function loadTree() {
 
         style: [
 
+
+
             {
-                selector:'node[type="person"]',
+
+                selector:
+                'node[type="person"]',
+
 
                 style: {
 
-                    label:"data(label)",
+                    label:
+                    "data(label)",
 
-                    "background-color":"#2e8b57",
 
-                    color:"#ffffff",
+                    "background-color":
+                    "#4CAF50",
 
-                    width:120,
 
-                    height:120,
+                    color:
+                    "white",
 
-                    "text-valign":"center",
 
-                    "text-halign":"center",
+                    width:
+                    120,
 
-                    "font-size":14
+
+                    height:
+                    120,
+
+
+                    "text-wrap":
+                    "wrap",
+
+
+                    "text-valign":
+                    "center",
+
+
+                    "text-halign":
+                    "center"
 
                 }
 
             },
 
 
+
+
             {
-                selector:'node[type="marriage"]',
+
+                selector:
+                'node[type="marriage"]',
+
 
                 style: {
 
-                    label:"data(label)",
+                    label:
+                    "data(label)",
 
-                    "background-color":"#e91e63",
 
-                    color:"#ffffff",
+                    "background-color":
+                    "#e91e63",
 
-                    width:50,
 
-                    height:50,
+                    color:
+                    "white",
 
-                    "text-valign":"center",
 
-                    "text-halign":"center",
+                    width:
+                    70,
 
-                    "font-size":20
+
+                    height:
+                    70,
+
+
+                    "text-wrap":
+                    "wrap",
+
+
+                    "text-valign":
+                    "center",
+
+
+                    "text-halign":
+                    "center"
 
                 }
 
             },
 
 
+
+
+
             {
 
-                selector:"edge",
+                selector:
+                "edge",
+
 
                 style: {
 
-                    width:3,
+                    width:
+                    3,
 
-                    "line-color":"#555"
+
+                    "line-color":
+                    "#777"
 
                 }
 
             }
 
+
+
         ],
+
 
 
 
         layout: {
 
-            name:"preset",
 
-            fit:true,
+            name:
+            "breadthfirst",
 
-            padding:100
+
+            directed:
+            true,
+
+
+            spacingFactor:
+            2,
+
+
+            padding:
+            100
 
         }
 
@@ -285,129 +388,11 @@ async function loadTree() {
 
 
 
-
-    // Custom family positioning
-
-
-    let currentX = 200;
-
-    let currentY = 150;
-
-
-
-    marriages.forEach(marriage => {
-
-
-
-        let spouseOne =
-        cy.getElementById(
-            `person-${marriage.spouse_one}`
-        );
-
-
-        let spouseTwo =
-        cy.getElementById(
-            `person-${marriage.spouse_two}`
-        );
-
-
-        let marriageNode =
-        cy.getElementById(
-            `marriage-${marriage.id}`
-        );
-
-
-
-        spouseOne.position({
-
-            x:currentX,
-
-            y:currentY
-
-        });
-
-
-
-        spouseTwo.position({
-
-            x:currentX+250,
-
-            y:currentY
-
-        });
-
-
-
-        marriageNode.position({
-
-            x:currentX+125,
-
-            y:currentY+180
-
-        });
-
-
-
-
-
-        let kids =
-        marriageChildren.filter(
-
-            child =>
-            child.marriage_id === marriage.id
-
-        );
-
-
-
-        kids.forEach((child,index)=>{
-
-
-            let childNode =
-            cy.getElementById(
-                `person-${child.child_id}`
-            );
-
-
-            childNode.position({
-
-                x:
-                currentX+(index*180),
-
-                y:
-                currentY+400
-
-            });
-
-
-        });
-
-
-
-        currentX += 600;
-
-
-
-    });
-
-
-
-
-
-    cy.fit();
-
-
-
-
-
-    // Open profile when clicking person
+    // Click person
 
     cy.on(
-
         "tap",
-
-        "node[type='person']",
-
+        'node[type="person"]',
         function(){
 
             openProfile(
@@ -415,36 +400,35 @@ async function loadTree() {
             );
 
         }
-
     );
 
 
 
 
 
-    // Controls
-
-    window.zoomIn = () => {
-
-        cy.zoom(
-            cy.zoom()+0.2
-        );
-
-    };
-
-
-    window.zoomOut = () => {
-
-        cy.zoom(
-            cy.zoom()-0.2
-        );
-
-    };
-
-
-    window.centerTree = () => {
+    window.centerTree = function(){
 
         cy.fit();
+
+    };
+
+
+
+    window.zoomIn = function(){
+
+        cy.zoom(
+            cy.zoom() + .2
+        );
+
+    };
+
+
+
+    window.zoomOut = function(){
+
+        cy.zoom(
+            cy.zoom() - .2
+        );
 
     };
 
@@ -454,4 +438,8 @@ async function loadTree() {
 
 
 
-loadTree();
+
+document.addEventListener(
+    "DOMContentLoaded",
+    loadFamilyTree
+);
