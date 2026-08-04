@@ -6,6 +6,7 @@ import cytoscape from
 "https://cdn.jsdelivr.net/npm/cytoscape/+esm";
 
 
+
 async function loadTree(){
 
 
@@ -14,13 +15,16 @@ const tree=document.getElementById("tree");
 
 if(!tree){
 
-    return;
+return;
 
 }
 
 
 
-const {data,error}=await supabase
+
+// Load people
+
+const {data:people,error:peopleError}=await supabase
 
 .from("people")
 
@@ -28,13 +32,35 @@ const {data,error}=await supabase
 
 
 
-if(error){
+if(peopleError){
 
-console.log(error);
+console.log(peopleError);
 
 return;
 
 }
+
+
+
+
+// Load relationships
+
+const {data:relationships,error:relationshipError}=await supabase
+
+.from("relationships")
+
+.select("*");
+
+
+
+if(relationshipError){
+
+console.log(relationshipError);
+
+return;
+
+}
+
 
 
 
@@ -44,7 +70,10 @@ let edges=[];
 
 
 
-data.forEach(person=>{
+
+// Create people nodes
+
+people.forEach(person=>{
 
 
 nodes.push({
@@ -69,7 +98,9 @@ person:person
 
 
 
-data.forEach(person=>{
+// Parent connections
+
+people.forEach(person=>{
 
 
 if(person.parent_id){
@@ -84,7 +115,44 @@ id:
 
 source:String(person.parent_id),
 
-target:String(person.id)
+target:String(person.id),
+
+type:"parent"
+
+}
+
+});
+
+
+}
+
+
+});
+
+
+
+
+
+// Spouse connections
+
+relationships.forEach(rel=>{
+
+
+if(rel.relationship_type==="spouse"){
+
+
+edges.push({
+
+data:{
+
+id:
+"spouse-"+rel.person_id+"-"+rel.related_person_id,
+
+source:String(rel.person_id),
+
+target:String(rel.related_person_id),
+
+type:"spouse"
 
 }
 
@@ -102,7 +170,9 @@ target:String(person.id)
 
 const cy=cytoscape({
 
+
 container:tree,
+
 
 
 elements:{
@@ -115,7 +185,9 @@ edges:edges
 
 
 
+
 style:[
+
 
 {
 
@@ -142,9 +214,10 @@ height:100,
 },
 
 
+
 {
 
-selector:"edge",
+selector:'edge[type="parent"]',
 
 style:{
 
@@ -156,9 +229,29 @@ width:3,
 
 }
 
+},
+
+
+
+{
+
+selector:'edge[type="spouse"]',
+
+style:{
+
+width:3,
+
+"line-color":"#e91e63",
+
+"line-style":"dashed"
+
 }
 
+}
+
+
 ],
+
 
 
 
@@ -166,9 +259,12 @@ layout:{
 
 name:"breadthfirst",
 
-directed:true
+directed:true,
+
+padding:50
 
 }
+
 
 
 });
