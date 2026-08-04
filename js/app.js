@@ -1,3 +1,4 @@
+console.log("APP JS STARTED");
 console.log("NEW APP.JS LOADED");
 
 import { supabase } from "../database.js";
