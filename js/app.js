@@ -1,46 +1,119 @@
 import { supabase } from "../database.js";
 
 
-async function loadParents(){
+
+let people=[];
+
+
+
+async function loadPeople(){
+
 
     const {data,error}=await supabase
+
     .from("people")
+
     .select("*")
+
     .order("id");
 
 
+
     if(error){
+
         console.log(error);
+
         return;
+
     }
 
 
-    const select=document.getElementById("parentSelect");
+
+    people=data;
 
 
-    if(!select){
-        return;
+    loadDropdowns();
+
+
+}
+
+
+
+
+
+function loadDropdowns(){
+
+
+    const parentSelect =
+    document.getElementById("parentSelect");
+
+
+    const spouseSelect =
+    document.getElementById("spouseSelect");
+
+
+
+    if(parentSelect){
+
+        parentSelect.innerHTML =
+        `<option value="">No Parent</option>`;
+
     }
 
 
-    select.innerHTML=
-    `<option value="">No Parent</option>`;
+
+    if(spouseSelect){
+
+        spouseSelect.innerHTML =
+        `<option value="">No Spouse</option>`;
+
+    }
 
 
-    data.forEach(person=>{
 
-        const option=document.createElement("option");
 
-        option.value=person.id;
+    people.forEach(person=>{
 
-        option.textContent=
+
+        const name =
+
         `${person.first_name || ""} ${person.last_name || ""}`;
 
-        select.appendChild(option);
+
+
+        if(parentSelect){
+
+            const option=document.createElement("option");
+
+            option.value=person.id;
+
+            option.textContent=name;
+
+            parentSelect.appendChild(option);
+
+        }
+
+
+
+
+        if(spouseSelect){
+
+            const option=document.createElement("option");
+
+            option.value=person.id;
+
+            option.textContent=name;
+
+            spouseSelect.appendChild(option);
+
+        }
+
 
     });
 
+
 }
+
 
 
 
@@ -48,55 +121,132 @@ async function loadParents(){
 async function addPerson(){
 
 
-    const first=
+    const firstName=
+
     document.getElementById("firstName").value;
 
 
-    const last=
+
+    const lastName=
+
     document.getElementById("lastName").value;
 
 
-    const parent=
+
+    const parentID=
+
     document.getElementById("parentSelect").value || null;
 
 
 
-    if(!first){
+    const spouseID=
+
+    document.getElementById("spouseSelect").value || null;
+
+
+
+
+    if(!firstName){
 
         alert("Enter a first name");
+
         return;
 
     }
 
 
 
-    const {error}=await supabase
+
+    const {data,error}=await supabase
 
     .from("people")
 
     .insert({
 
-        first_name:first,
+        first_name:firstName,
 
-        last_name:last,
+        last_name:lastName,
 
-        parent_id:parent
+        parent_id:parentID,
 
-    });
+        spouse_id:spouseID
+
+    })
+
+    .select()
+
+    .single();
+
 
 
 
     if(error){
 
         alert(error.message);
+
         console.log(error);
+
         return;
 
     }
 
 
 
+   // Connect spouse both ways
+
+if(spouseID){
+
+
+    // Update the person being added
+
+    await supabase
+
+    .from("people")
+
+    .update({
+
+        spouse_id: spouseID
+
+    })
+
+    .eq(
+
+        "id",
+
+        data.id
+
+    );
+
+
+
+    // Update the existing spouse
+
+    await supabase
+
+    .from("people")
+
+    .update({
+
+        spouse_id: data.id
+
+    })
+
+    .eq(
+
+        "id",
+
+        spouseID
+
+    );
+
+
+}
+
+
+
+
     location.reload();
+
 
 }
 
@@ -105,15 +255,18 @@ async function addPerson(){
 
 
 document.addEventListener(
+
 "DOMContentLoaded",
+
 ()=>{
 
 
-    loadParents();
+    loadPeople();
 
 
 
     const button=
+
     document.getElementById("addPersonButton");
 
 

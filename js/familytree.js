@@ -2,10 +2,8 @@ import { supabase } from "../database.js";
 
 import { openProfile } from "./profiles.js";
 
-
 import cytoscape from
 "https://cdn.jsdelivr.net/npm/cytoscape/+esm";
-
 
 
 async function loadTree(){
@@ -33,6 +31,7 @@ const {data,error}=await supabase
 if(error){
 
 console.log(error);
+
 return;
 
 }
@@ -81,7 +80,7 @@ edges.push({
 data:{
 
 id:
-"e"+person.parent_id+"-"+person.id,
+"parent-"+person.parent_id+"-"+person.id,
 
 source:String(person.parent_id),
 
@@ -159,7 +158,6 @@ width:3,
 
 }
 
-
 ],
 
 
@@ -180,15 +178,22 @@ directed:true
 
 
 cy.on(
+
 "tap",
+
 "node",
+
 function(){
 
 openProfile(
+
 this.data("person")
+
 );
 
-});
+}
+
+);
 
 
 
