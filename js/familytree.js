@@ -10,7 +10,8 @@ import cytoscape from
 async function loadTree(){
 
 
-const tree=document.getElementById("tree");
+const tree =
+document.getElementById("tree");
 
 
 if(!tree){
@@ -21,8 +22,7 @@ return;
 
 
 
-
-// Load people
+// Load data
 
 const {data:people,error:peopleError}=await supabase
 
@@ -32,34 +32,40 @@ const {data:people,error:peopleError}=await supabase
 
 
 
-if(peopleError){
+const {data:marriages,error:marriageError}=await supabase
 
-console.log(peopleError);
-
-return;
-
-}
-
-
-
-
-// Load relationships
-
-const {data:relationships,error:relationshipError}=await supabase
-
-.from("relationships")
+.from("marriages")
 
 .select("*");
 
 
 
-if(relationshipError){
+const {data:children,error:childrenError}=await supabase
 
-console.log(relationshipError);
+.from("marriage_children")
+
+.select("*");
+
+
+
+
+
+if(
+peopleError ||
+marriageError ||
+childrenError
+){
+
+console.log(
+peopleError ||
+marriageError ||
+childrenError
+);
 
 return;
 
 }
+
 
 
 
@@ -71,7 +77,7 @@ let edges=[];
 
 
 
-// Create people nodes
+// Add people nodes
 
 people.forEach(person=>{
 
@@ -80,12 +86,15 @@ nodes.push({
 
 data:{
 
-id:String(person.id),
+id:"person-"+person.id,
 
 label:
+
 `${person.first_name || ""} ${person.last_name || ""}`,
 
-person:person
+person:person,
+
+type:"person"
 
 }
 
@@ -98,12 +107,27 @@ person:person
 
 
 
-// Parent connections
+// Add marriage nodes
 
-people.forEach(person=>{
+marriages.forEach(marriage=>{
 
 
-if(person.parent_id){
+nodes.push({
+
+data:{
+
+id:"marriage-"+marriage.id,
+
+label:"💍",
+
+type:"marriage"
+
+}
+
+});
+
+
+
 
 
 edges.push({
@@ -111,34 +135,17 @@ edges.push({
 data:{
 
 id:
-"parent-"+person.parent_id+"-"+person.id,
 
-source:String(person.parent_id),
+"m1-"+marriage.id,
 
-target:String(person.id),
+source:"person-"+marriage.spouse_one,
 
-type:"parent"
+target:"marriage-"+marriage.id
 
 }
 
 });
 
-
-}
-
-
-});
-
-
-
-
-
-// Spouse connections
-
-relationships.forEach(rel=>{
-
-
-if(rel.relationship_type==="spouse"){
 
 
 edges.push({
@@ -146,20 +153,50 @@ edges.push({
 data:{
 
 id:
-"spouse-"+rel.person_id+"-"+rel.related_person_id,
 
-source:String(rel.person_id),
+"m2-"+marriage.id,
 
-target:String(rel.related_person_id),
+source:"person-"+marriage.spouse_two,
 
-type:"spouse"
+target:"marriage-"+marriage.id
 
 }
 
 });
 
 
+
+});
+
+
+
+
+
+
+// Connect children
+
+children.forEach(child=>{
+
+
+edges.push({
+
+data:{
+
+id:
+
+"child-"+child.marriage_id+"-"+child.child_id,
+
+source:
+
+"marriage-"+child.marriage_id,
+
+target:
+
+"person-"+child.child_id
+
 }
+
+});
 
 
 });
@@ -168,7 +205,8 @@ type:"spouse"
 
 
 
-const cy=cytoscape({
+const cy =
+cytoscape({
 
 
 container:tree,
@@ -177,21 +215,19 @@ container:tree,
 
 elements:{
 
-nodes:nodes,
+nodes,
 
-edges:edges
+edges
 
 },
 
 
 
-
 style:[
-
 
 {
 
-selector:"node",
+selector:'node[type="person"]',
 
 style:{
 
@@ -201,9 +237,9 @@ label:"data(label)",
 
 color:"white",
 
-width:100,
+width:110,
 
-height:100,
+height:110,
 
 "text-valign":"center",
 
@@ -217,15 +253,19 @@ height:100,
 
 {
 
-selector:'edge[type="parent"]',
+selector:'node[type="marriage"]',
 
 style:{
 
-width:3,
+label:"data(label)",
 
-"line-color":"#555",
+"background-color":"#e91e63",
 
-"target-arrow-shape":"triangle"
+color:"white",
+
+width:40,
+
+height:40
 
 }
 
@@ -235,23 +275,19 @@ width:3,
 
 {
 
-selector:'edge[type="spouse"]',
+selector:"edge",
 
 style:{
 
 width:3,
 
-"line-color":"#e91e63",
-
-"line-style":"dashed"
+"line-color":"#555"
 
 }
 
 }
-
 
 ],
-
 
 
 
@@ -261,7 +297,7 @@ name:"breadthfirst",
 
 directed:true,
 
-padding:50
+spacingFactor:2
 
 }
 
@@ -277,7 +313,7 @@ cy.on(
 
 "tap",
 
-"node",
+"node[type='person']",
 
 function(){
 
